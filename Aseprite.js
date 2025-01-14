@@ -7,6 +7,7 @@ class Aseprite {
   constructor(buffer, name) {
     this._offset = 0;
     this._buffer = buffer;
+    this._userDataTarget = this
     this.frames = [];
     this.layers = [];
     this.slices = [];
@@ -315,30 +316,38 @@ class Aseprite {
         case 0x0011:
         case 0x2016:
         case 0x2017:
-        case 0x2020:
           this.skipBytes(chunkData.chunkSize - 6);
           break;
         case 0x2022:
           this.readSliceChunk();
+          this._userDataTarget = this.slices[this.slices.length - 1];
           break;
         case 0x2004:
           this.readLayerChunk();
+          this._userDataTarget = this.layers[this.layers.length - 1];
           break;
         case 0x2005:
           let celData = this.readCelChunk(chunkData.chunkSize);
           cels.push(celData);
+          this._userDataTarget = celData;
           break;
         case 0x2007:
           this.readColorProfileChunk();
           break;
         case 0x2018:
           this.readFrameTagsChunk();
+          this._userDataTarget = this.tags[0];
           break;
         case 0x2019:
           this.palette = this.readPaletteChunk();
           break;
+        case 0x2020:
+          this.readUserDataChunk();
+          break;
         case 0x2023:
-          this.tilesets.push(this.readTilesetChunk());
+          let tileset = this.readTilesetChunk()
+          this.tilesets.push(tileset);
+          this._userDataTarget = tileset;
           break;
         default: // ignore unknown chunk types
           this.skipBytes(chunkData.chunkSize - 6);
@@ -442,6 +451,42 @@ class Aseprite {
     }
     this.colorDepth === 8 ? palette.index = this.paletteIndex : '';
     return palette;
+  }
+
+  readUserDataChunk() {
+    // Get the target object to write user data into. If there is
+    // no target, user data will be parsed into an empty object and discarded.
+    const target = this._userDataTarget || {};
+    const flags = this.readNextDWord();
+    if ((flags & 1) !== 0) {
+      target.userDataText = this.readNextString();
+    }
+
+    if ((flags & 2) !== 0) {
+      let red = this.readNextByte();
+      let green = this.readNextByte();
+      let blue = this.readNextByte();
+      let alpha = this.readNextByte();
+      target.userDataColor = { red, green, blue, alpha, name: "" };
+    }
+
+    // https://github.com/aseprite/aseprite/blob/main/docs/ase-file-specs.md#user-data-chunk-0x2020:
+    
+    // > After a Tags chunk, there will be several user data chunks, one for
+    // > each tag, you should associate the user data in the same order as
+    // > the tags are in the Tags chunk.
+    // So if the target is a tag, select the next tag as the next target.
+    const targetTagIndex = this.tags.findIndex((tag) => tag === target);
+    if (targetTagIndex >= 0) {
+      this._userDataTarget = this.tags[targetTagIndex + 1]
+      return;
+    }
+    
+    // default to resetting the _userDataTarget back to an empty object
+    this._userDataTarget = undefined;
+
+    // Note the spec allows for user data chunks for individual tiles, but
+    // we don't suppor those since we don't parse out the tiles
   }
 
   /**

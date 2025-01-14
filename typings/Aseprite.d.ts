@@ -1,4 +1,4 @@
-declare class Aseprite {
+declare class Aseprite implements Aseprite.UserData {
   frames: Array<Aseprite.Frame>;
   layers: Array<Aseprite.Layer>;
   slices: Array<Aseprite.Slice>;
@@ -15,7 +15,7 @@ declare class Aseprite {
   width: number;
   height: number;
   numFrames: number;
-  constructor(buffer: Buffer, name: string): void;
+  constructor(buffer: Buffer, name: string);
   readByte(offset: number): number;
   readWord(offset: number): number;
   readShort(offset: number): number;
@@ -29,6 +29,11 @@ declare class Aseprite {
 export = Aseprite;
 
 declare namespace Aseprite {
+  export interface UserData {
+    userDataText?: string;
+    userDataColor?: Aseprite.Color;
+  }
+
   export interface Palette {
     paletteSize: number;
     firstColor: number;
@@ -55,7 +60,7 @@ declare namespace Aseprite {
     alpha: number;
     name: string;
   }
-  export interface Cel {
+  export interface Cel extends UserData {
     layerIndex: number;
     xpos: number;
     ypos: number;
@@ -74,7 +79,7 @@ declare namespace Aseprite {
     };
     rawCelData: Buffer;
   }
-  export interface Tag {
+  export interface Tag extends UserData {
     name: string;
     from: number;
     to: number;
@@ -82,7 +87,7 @@ declare namespace Aseprite {
     repeat: number;
     color: string;
   }
-  export interface Layer {
+  export interface Layer extends UserData {
     flags: Aseprite.LayerFlags;
     type: number;
     layerChildLevel: number;
@@ -91,7 +96,7 @@ declare namespace Aseprite {
     name: string;
     tilesetIndex?: number;
   }
-  export interface Slice {
+  export interface Slice extends UserData {
     flags: number;
     keys: SliceKey[];
     name: string;
